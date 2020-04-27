@@ -11,4 +11,4 @@ Initial submissions to this repository will center around the United States of A
 
 ## Sections of the report
 
-The report is currently broken down into basic sections:  1. Time series analysis of the data, 2.  Analsis/Linear modeling of before/after time frames to look at case progression over a 2 week window and 3. Geo-spatial modeling on a county level to look at overall distrubution of the disease.
+The report is currently broken down into basic sections:  1. Time series analysis of the data, 2.  Analysis/Linear modeling of before/after time frames to look at case progression over a 2 week window and 3. Geo-spatial modeling on a county level to look at overall distrubution of the disease.
