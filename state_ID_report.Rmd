@@ -390,7 +390,7 @@ state_tally <- st %>%
     left_join(state_tally, by= c("GEOID" = "fips")) %>%
     ggplot(aes(fill = log(n))) + 
     geom_sf(color = NA) + 
-    coord_sf(crs = 26911) + 
+    coord_sf() + 
     scale_fill_viridis_c(option = "magma") +
     ggtitle(paste("Number of COVID-19 cases by county", state2select))
 
@@ -409,7 +409,7 @@ state_tally <- st %>%
     mutate(p_adj = n/estimate) %>%
     ggplot(aes(fill = log(p_adj))) + 
     geom_sf(color = NA) + 
-    coord_sf(crs = 26911) + 
+    coord_sf() + 
     scale_fill_viridis_c(option = "magma") +
     ggtitle(paste("Population adjusted cases of COVID-19", state2select))
 
