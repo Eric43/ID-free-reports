@@ -335,6 +335,7 @@ st %>%
   group_by(county) %>%
   tally(cases) %>%
   ggplot(aes(x = n, y = reorder(county, n))) + 
+  coord_trans(x = "log") +
   geom_point(color = "red", size = 1.5) +
   labs(title = paste("Total N cases COVID-19 in", state2select, max(st$date)),
        subtitle = "NY-times public data set",
@@ -391,7 +392,7 @@ state_tally <- st %>%
     ggplot(aes(fill = log(n))) + 
     geom_sf(color = NA) + 
     coord_sf() + 
-    scale_fill_viridis_c(option = "magma") +
+    scale_fill_distiller(palette = "Spectral") +
     ggtitle(paste("Number of COVID-19 cases by county", state2select))
 
 ```
@@ -410,7 +411,7 @@ state_tally <- st %>%
     ggplot(aes(fill = log(p_adj))) + 
     geom_sf(color = NA) + 
     coord_sf() + 
-    scale_fill_viridis_c(option = "magma") +
+    scale_fill_distiller(palette = "Spectral") +
     ggtitle(paste("Population adjusted cases of COVID-19", state2select))
 
 ```
