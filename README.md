@@ -1,5 +1,9 @@
 # ID-free-reports
-A basic repository for free infectious disease tracking reports and R code
+A basic repository for free infectious disease tracking reports and R code.
+
+## To use
+
+Just download/copy the state_ID_report.Rmd and edit the <INSERT STATE HERE> with the correct state (without the <>).  Check the states stay in place/lockdown order and correct the date if necessary.  The data set is downloaded from the NY-times data and the rest the entire file can be run and knit(ed) to the correct final format.  Enjoy.
 
 
 The goal of this is to help hospitals with limited resources to develop their own Infectious Disease reports.  The intial work is based upon the COVID-19 timesereis work.  However, it will also include geospatial and other helpful tools for anyone to use without a need for developing an new report framework.  
