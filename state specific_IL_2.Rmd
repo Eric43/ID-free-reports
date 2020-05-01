@@ -1,0 +1,441 @@
+---
+title: "State specific time series analysis"
+author: "Eric Olle"
+date: "April 30, 2020"
+output:
+  pdf_document: default
+  word_document: default
+  html_document: default
+---
+
+# A free and open framework for the analysis of COVID-19 world wide pandemic
+
+## Background
+
+This is the basic markdown document as part of a free and open epidemology document.  This is meant to be used free of charge and kept in the GPLv3 or equivlent to allow for ongoing analysis of the data set. This file and information may also be used for other local epidemics as needed.  
+
+### R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+### This is a rough draft and has not been checked for spelling or grammar!
+
+This is a working document that is part of an onging R markdown.  
+
+The orginal r markdown will be posted to:
+
+https://github.com/Eric43/SIP-order
+
+Need to do the references at the end.
+
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(forecast)
+library(lmtest)
+library(tidycensus)
+options(tigris_use_cache = TRUE)
+
+```
+
+### Loading the data from file
+
+This section loads the infection data from the NY-times public dataset. If needed, a csv file can be loaded using the readr read_csv() command.  Make sure date is properly loaded in as a data/posix type.
+
+```{r, Loading the COVID-19 infection data from NY-times public dataset}
+
+
+us_counties <- read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
+
+
+```
+
+### Setting the constants that apply to the individual state
+In this section to constants that will apply to the individual state(s) can be done.
+
+```{r, Setting the constants}
+
+# Which specific state?
+
+state2select <- "Illinois"
+
+# What is the state specific lockdown?  
+# (follow the correct date format)
+
+lockdown_st <- as.Date("2020-03-20")
+
+lockdown_effect <- FALSE
+
+# lockdown data
+
+## Peoples Republic of China
+lockdownprc <- as.Date("2020-01-23") 
+## Italy
+lockdownitl <- as.Date("2020-03-08")
+## USA - New York
+lockdownnyc <- as.Date("2020-03-20")
+
+```
+
+## Part 1.  Time series analysis
+
+In this section a basic time series plot of the full US along with the selected state will be done.
+
+### Plotting the full state data set.
+
+```{r, Plotting entire NY times data set, echo=FALSE}
+
+us_counties %>%
+  select(c(date, state, cases)) %>%
+  group_by(date, state) %>%
+  tally(cases) %>%
+  ggplot(aes(x=date,y=n,colour=state,group=state)) + 
+  coord_trans(y="log") +
+  scale_colour_discrete(guide = FALSE) +
+  geom_line()+
+  geom_vline(xintercept = as.numeric(lockdownnyc), color = "Blue") +
+  geom_vline(xintercept = as.numeric(lockdownitl), color = "Green") +
+  geom_vline(xintercept = as.numeric(lockdownprc), color = "Red") +
+  ylab("N Cases - linear scale")+
+  xlab("Date") +
+  ggtitle(paste("Number of cases over time in NY-times data set (All states)"))
+
+```
+
+The above graph shows the different time series of infetions accross the USA.  The red line indicates the first lockdown in China of `r paste(lockdownprc)`.  Included are the Italian lockdown of `r paste(lockdownitl)` in green and the New York lockdown of `r paste(lockdownnyc)` in blue. This should act as a way to help visualize and pinpoint different times.  If additional times are needed use the geom_vline() command.
+
+
+### Selecting the state specific data from the NY Times dataset
+
+To select a specific state use the unique state names call (above) set the state name by copy/paste or typing in with the quotation marks.  The current state is set to: `r state2select`. The states lockdown date is set to `r lockdown_st'.  To change the state and/or the lockdown date do so in the previous section called "Setting the constants."   Finally, if the state has enough data before the lockdown (i.e. 5-7 days) and is still not in the lag phase of exponetial growth feel free to set lockdown effect analysis to "TRUE."
+
+#### Selecting the state data from state2select var
+
+The st data set was selected in case future geo-spatial on the rate of cases by county is needed.
+
+```{r, starting with all the states and selecting just one state}
+
+
+st <- us_counties %>%
+  select(c(date, state, county, fips, cases, deaths)) %>%
+  filter(state == state2select)
+
+st_cases <- st %>% select(c(date, cases)) %>%
+    group_by(date) %>%
+    tally(cases)
+  
+```
+
+
+#### Plotting the state specific data
+
+Once the data is selected and grouped by state cases a general total cases per day model can be developed.  Depending on the state this should not select the NA's and have different start times.  Alternative methods are possible by converting to a wide format to maintain early NA data.
+
+```{r, Time-series using just one state, echo=FALSE}
+
+st_cases %>%
+  ggplot(aes(x=date,y=n)) + 
+  scale_colour_discrete(guide = FALSE) +
+  geom_line()+
+  geom_vline(xintercept = as.numeric(lockdown_st), color = "Blue") +
+  ylab("N Cases - linear scale")+
+  xlab("Date") +
+  ggtitle(paste("Number of cases over time in: ", state2select))
+
+```
+
+
+Depending on total case numbers(i.e. greater than 1000-5000) a log scale maybe easier to show trends and see recent trends.  If under 5000 cases total this may over-represent trends (up or down) that are only part of the standard variance of the data.
+
+
+
+```{r, Time series plot using log for y axis, echo=FALSE}
+  
+st_cases %>%
+  ggplot(aes(x=date,y=n)) + 
+  scale_colour_discrete(guide = FALSE) +
+  geom_line()+
+  coord_trans(y="log") +
+  geom_vline(xintercept = as.numeric(lockdown_st), color = "Blue") +
+  ylab("N Cases - natural log scale")+
+  xlab("Date") +
+  ggtitle(paste("Number of cases over time in: ", state2select))
+
+
+```
+
+
+
+### Basic forecast model for the next 10 days.
+
+To do this you will need to convert the date data into a time-series using the Forecast and lubridate packages in R.  This is a very basic forecasting model and just uses random walk with or without drift.  Depending on the phase of the infectious disease this may need to be done using ARIMA modeling (later sections).  However, this can provide a basic idea of where the cases may be in 10 days witout major changes in the outlying varables. 
+
+```{r, Random Walk Forecasting model, echo=FALSE}
+
+start_cases <- min(st_cases$date)
+end_cases <- max(st_cases$date)
+
+stcases_ts <- ts(st_cases[,2], start = c(year(start_cases), yday(start_cases)),
+               end = c(year(end_cases), yday(end_cases)), frequency = 365)
+
+
+autoplot(stcases_ts) +
+  autolayer(rwf(stcases_ts, h=10),
+    series="RWF Naïve", PI=FALSE) +
+  autolayer(rwf(stcases_ts, drift=TRUE, h=10),
+    series="RWF Drift", PI=FALSE) + 
+  ggtitle(paste("Forecasts for total COVID-19 over next 10 days", state2select)) +
+  xlab("Time") + 
+  ylab("Number cases") +
+  guides(colour=guide_legend(title="Forecast"))
+
+
+```
+
+Doing a basic difference model with forecasting.
+
+```{r, setting up the difference model with forecast, echo=FALSE}
+
+autoplot(diff(stcases_ts)) +
+  autolayer(rwf(diff(stcases_ts), h=10),
+    series="RWF Naïve", PI=FALSE) +
+  autolayer(rwf(diff(stcases_ts), drift=TRUE, h=10),
+    series="RWF Drift", PI=FALSE) + 
+  ggtitle(paste("Forecasts for daily case difference over next 10 days", state2select)) +
+  xlab("Time") + 
+  ylab("Difference in cases a day") +
+  guides(colour=guide_legend(title="Forecast"))
+
+
+```
+
+## Part 2.  Using linear modeling in daily difference to determine the trends
+
+In this part it will be broken down into thre sections.  First section will look at the standard model for the 10-days bofere and after a lock-down/stay in place order.  Then a standard last 10-14 days compared to previous 10-14 days and both normalized to days 1 through 10 (or 14).  Second part is the start of the difference model by looking at the previous 10-14 days and comparing to the time before that.  This is appropriate in states that had not transistioned from lag-phase to exponetial growth phase (i.e. West Virginia).  This shoud show a basic day-over-day trend.  Third part is looking at the effect of the stay in place/lockdown order to determine if it had a measurable effect.  NOTE: in states with minimal/no time in exponential growth this may not be an accurate measure and recommend that Part 2, section B be used (ie. comparing two different time frames).
+
+NOTE:  This is still being worked on and needs to have the stay in place order model done.  
+
+### Part 2. Section A Comparing the last two weeks to the previous.
+
+Comparing the last n days versus previous time frame using standard case number and difference modeling.
+
+
+
+Above shows a basic difference model of a time series with a random walk forecast.  If it appears that a form of stasis (i.e. random variation around an estimated mean) was achieved then it maybe possible to use ARIMA modeling for a better determination of actual Difference(cases).
+
+```{r, extraction of the days for 30 day analysis, echo = FALSE }
+
+### This probably needs to be made into a function but this is the simpler way
+
+diff_window <- 14 # Setting the number of days for 14
+
+before_start <-(end_cases - (2*diff_window))
+
+before_end <- (end_cases - diff_window)
+
+diff_tib <- tibble(Day = c(1:diff_window))
+
+### Adding the different rows
+
+before_window <- st_cases %>%
+  filter(date >= before_start & date <= before_end)
+
+
+after_window <- st_cases %>%
+  filter(date >= before_end & date <= before_end + diff_window) 
+#Set up the standard time series.  Note:15 days to allow 14 d of difference modeling
+
+std_tib <- tibble(Day = c(1:15)) %>%
+  mutate(Before = before_window$n) %>%
+  mutate(After = after_window$n) %>%
+  gather(key = Timing, value = n, - Day)
+
+
+diff_tib <- diff_tib %>%
+  mutate(Before = diff(before_window$n)) %>%
+  mutate(After = diff(after_window$n)) %>%
+  gather(key = Timing, value = n, - Day)
+
+
+```
+
+After setting up the two different time frames in a tibble (i.e. 14 days for difference series is 15 days in standard series), the two differnt data sets are plotted.  The first to be plotted is the standard 15 day data series with a linear model trend line from geom_smooth() command in ggplot2 can be seen below.  After is the data set in the last 15 days and the before is the 15 days prior to the After data set.  This was meant to coincide with the naming of the lockdown (before and after the lockdown) data analysis (below).
+
+```{r, plotting cummulative number of cases over two time periods, echo=FALSE}
+
+ggplot(data = std_tib, aes(x = Day, y = n)) + 
+  geom_line(aes(colour=Timing)) +
+  geom_smooth(data = std_tib[1:15,], method = "lm") +
+  geom_smooth(data = std_tib[16:30,], method = "lm") +
+  ggtitle(paste("Cumulative case load COVID-19 in 15 d groups:  ", state2select))
+
+
+```
+
+
+The above data is showing the before group from `r paste("Starting date, ", before_start, "to", before_end)`.  The after group includes from `r paste("Starting date, ", before_end, "to", (before_end+diff_window))`. Looking at the dataset it is usually difficult if not impossible to see a change in the slope if the infectious disease is in the lag, exponetial growth or stationalry phase(es).  During the death phase or transition from one phase to the nextthe slopes maybe different   In addition, Yule-Simpson effect of big data maybe involved and te slope of the line may be unrelated or trend differently than the actual sub-grouped data.  What we are really interested in is a straighforward question.  Does the number of new cases per day differ (i.e. lower, greater or stay the same)?  Therefore, a difference model was designed to look at to determine if the difference between the day over day case numbers are changing.   
+
+
+```{r, Ploting and LM of the two time frames difference series, echo = FALSE}
+
+ggplot(data = diff_tib, aes(x = Day, y = n)) + 
+  geom_line(aes(colour=Timing)) +
+  geom_smooth(data = diff_tib[1:14,], method = "lm") +
+  geom_smooth(data = diff_tib[15:28,], method = "lm") +
+  ggtitle(paste("Difference Modeling of COVID-19 in 2 week windows", state2select))
+
+```
+
+Checking the Linear Model of the before and after.
+
+First part is to look at the LM for the before group.  Slope of difference in cases per day is located under the Day row, Estimate column.
+```{r, before linear modeling, echo = FALSE}
+before_lm <- lm(n ~ Day, data = diff_tib %>% filter(Timing == "Before"))
+
+
+summary(before_lm)
+
+```
+
+Second part is to look at the LM for the After group.  Slope of difference in cases per day is located under the Day row, Estimate column.
+```{r, linear modeling after, echo = FALSE}
+after_lm <- lm(n ~ Day, data = diff_tib %>% filter(Timing == "After"))
+
+
+summary(after_lm)
+
+
+```
+
+
+Comparing the slopes of the line can give you an idea of how the last 14 days compare to the previous.  
+
+#### Calculating the differnce between the before and after groups using the difference model 
+
+The goal of this section is to use the coefficients of the linear model (i.e. differences in cases/day) to see the number of cases and if the last two week the case load is decreasing (negative number), increasing (positive number) or remaining the same (around 0 +/- number).  The difference between the last two weeks and the previous two weeks is: `r paste("The difference in the slope (# cases/day) is: ", round(after_lm$coefficients[2] - before_lm$coefficients[2], digits = 2))` case-difference/day.
+   
+
+
+### Part 2, Sectiong B Linear modeling to look at before and after the stay in place order 
+
+Lockdown analysis set to FALSE.
+
+## Part 3. Geospatial distrubution of cases
+
+### Part 3 Section A Plotting bar graph of cases
+
+
+```{r, looking at the geospatial dist dot plot, echo = FALSE}
+
+
+st %>%
+  select(c(date, county, cases)) %>%
+  group_by(county) %>%
+  tally(cases) %>%
+  ggplot(aes(x = n, y = reorder(county, n))) + 
+  geom_point(color = "red", size = 1.5) +
+  labs(title = paste("Total N cases COVID-19 in", state2select, max(st$date)),
+       subtitle = "NY-times public data set",
+       y = "County",
+       x = "Total Cases")
+
+
+```
+
+The above graph shows total number of cases by county.  The next step is to show total mortality by county.  
+
+```{r, looking at the geospatial dist dot plot mortality, echo = FALSE}
+
+
+st %>%
+  select(c(date, county, deaths)) %>%
+  group_by(county) %>%
+  tally(deaths) %>%
+  ggplot(aes(x = n, y = reorder(county, n))) + 
+  geom_point(color = "black", size = 1.5) +
+  labs(title = paste("Total N deaths COVID-19 in", state2select, max(st$date)),
+       subtitle = "NY-times public data set",
+       y = "County",
+       x = "Total Deaths")
+
+
+```
+
+### Part 3 Section B plotting using state shape files
+
+#### Geospatial of number of cases
+
+```{r, Getting the census data, echo = FALSE}
+
+# Getting the census data
+state_census  <- get_acs(geography = "county", 
+                   variables = c(total_pop = "B01003_001"), 
+                   state = state2select, 
+                   year = 2018,
+                   geometry = TRUE)
+```
+
+```{r, Basic county level plots, echo=FALSE}
+
+state_tally <- st %>%
+    select(c(date, county, fips, cases)) %>%
+    group_by(county, fips) %>%
+    tally(cases) 
+  
+  
+
+  state_census %>%
+    left_join(state_tally, by= c("GEOID" = "fips")) %>%
+    ggplot(aes(fill = log(n))) + 
+    geom_sf(color = NA) + 
+    coord_sf(crs = 26911) + 
+    scale_fill_viridis_c(option = "magma") +
+    ggtitle(paste("Number of COVID-19 cases by county", state2select))
+
+```
+
+
+
+
+#### Geospatial overlay of probability of case given its population 
+
+
+```{r, Population adjusted county level plots, echo=FALSE}
+
+ state_census %>%
+    left_join(state_tally, by= c("GEOID" = "fips")) %>%
+    mutate(p_adj = log(n/estimate)) %>%
+    ggplot(aes(fill = p_adj)) + 
+    geom_sf(color = NA) + 
+    coord_sf(crs = 26911) + 
+    scale_fill_viridis_c(option = "magma") +
+    ggtitle(paste("Log population adjusted cases of COVID-19", state2select))
+
+```
+
+#### Basic prediction of the total cases until reduction to standard health risk
+
+In addition to number of cases and deaths there are some basic predictions that can be infered from previous pandemics.  While it seems to be fashionable to compare to the 1918 flu pandemic this is a useful number to allow a knowledge of approximate number (or percent) of cases required to decrease the infection rates below a public health risk.  In 1918, the world population was around 1.8 billion and around 500 million were infected this is a `r round(100 * 500000000/1800000000, digits =2)`% infection rate before lowering public health risk to "just the standard flu."  To see how `r paste(state2select)` is on the public health risk when comapred to the 1918 flu pandemic some basic calculations can be done.
+
+
+```{r, Basic PHR calculations very rough need probabilty modeling, echo = FALSE}
+
+p_flu_pan <- 500000000/1800000000
+
+tot_cases <- sum(st$cases)
+
+tot_dead <- sum(st$deaths)
+
+st_pop <- sum(state_census$estimate)
+
+pct_inf <- 100*  tot_cases/st_pop
+
+exp_pan <- round(p_flu_pan * st_pop, digits = 0)
+
+```
+
+Using the background of the number of population infected during the 1918 flu pandemic certain estimates can be made.  This means that when the popluation infected is roughly equal to the the percentage of those infected with the flu the public health risks is low enough to begin reducing the need for public masks/santization etc.  This would mean that for this state to achieve similar percent infected as the 1918 flu around `r paste(exp_pan)` is needed.  Currently, there are approximately `r paste(tot_cases)`. this is around `r paste(round(pct_inf, digits = 2))`%.  Currently the total mortality in the state is `r paste(tot_dead)` and this accounts for `r paste(round(100*(tot_dead/tot_cases), digits=2))`% of the total verified cases.
+
+
