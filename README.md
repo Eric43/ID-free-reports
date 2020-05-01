@@ -1,6 +1,8 @@
 # ID-free-reports
 A basic repository for free infectious disease tracking reports and R code.
 
+###This is a work in progress and is subject to change and spell/grammar check at any time! :)
+
 ## To use
 
 Just download/copy the:
