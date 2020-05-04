@@ -1,11 +1,11 @@
 ---
-title: "State specific time series analysis"
+title: "State Specific free and open epidemology analysis using R"
 author: "Eric Olle"
 date: "April 30, 2020"
 output:
-  pdf_document: default
-  word_document: default
   html_document: default
+  word_document: default
+  pdf_document: default
 ---
 
 # A free and open framework for the analysis of COVID-19 world wide pandemic
@@ -27,6 +27,10 @@ The orginal r markdown will be posted to:
 https://github.com/Eric43/ID-free-reports
 
 Need to do the references at the end.
+
+### Required packages
+
+The majority of the data clean up is done in the Tidyverse created by Hadley Wickam and others.  Hadley and his work on ggplot along with basiclly every aspesct of R have made R a more user friendly experience.  Without this vision this report may not have been possible.  If you can please support tidyverse and the work of R-studio to maintain these incredible resources for R-nerds everywhere.  Hadley and all his collaborators have, in my opnion (ewo) made working in R an almost enjoyable expereince.  I really appreciate the Yowmans effort of turning an ecclectic program based on S that I learned in the early 2000's to something that is truely remarkable for statistical and mathmatical modeling.  
 
 ```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -59,7 +63,7 @@ In this section to constants that will apply to the individual state(s) can be d
 
 # Which specific state?
 
-state2select <- "<INSERT STATE NAME HERE>"
+state2select <- "<insert state here>"
 
 # What is the state specific lockdown?  
 # (follow the correct date format)
@@ -173,6 +177,12 @@ st_cases %>%
 
 To do this you will need to convert the date data into a time-series using the Forecast and lubridate packages in R.  This is a very basic forecasting model and just uses random walk with or without drift.  Depending on the phase of the infectious disease this may need to be done using ARIMA modeling (later sections).  However, this can provide a basic idea of where the cases may be in 10 days witout major changes in the outlying varables. 
 
+The forecasting sections primarlly use the forecast package by Rob J Hyndman and George Athanasopoulos it is a phenominal package and is highly recommended that you suppor the continued development through purchasing of the book or maybe sending them a nice note at:
+
+https://otexts.com/fpp2/buy-a-print-or-downloadable-version.html
+
+The work done for this package is just amazing.
+
 ```{r, Random Walk Forecasting model, echo=FALSE}
 
 start_cases <- min(st_cases$date)
@@ -211,6 +221,36 @@ autoplot(diff(stcases_ts)) +
 
 ```
 
+#### ARIMA modeling prior 14 (15 for non differenc model) days in a difference model
+
+Another way to forecast the number of cases is to use ARIMA modeling (See the Forecast package citation) or:
+
+https://otexts.com/fpp2/
+
+This and the random walk with and without drift are meant to be used together to attempt to estimate the number of cases from the previous 15 days using the auto.arima() function.  There is no one "correct" answer when forecasting the future nubmer of infections but is meant to show overall treands and help predict public health risks.  The first graph is showing the log of the cases as part of a time series.
+
+```{r, ARIMA modeling past 15 days, echo=FALSE}
+end_arima <- max(st_cases$date)
+start_arima <- end_arima - 15
+
+arima_ts <- ts(st_cases[,2], start = c(year(start_arima), yday(start_arima)),
+               end = c(year(end_arima), yday(end_arima)), frequency = 365)
+
+
+
+autoplot(forecast(auto.arima(log(arima_ts)), h = 7)) +
+  labs(subtitle = paste("Standard log(cases) forecast model next 7 days", state2select, max(st$date)))
+
+```
+
+The above figure (ARIMA modeling of previous 15 days) is meant tho show an overall trend.  This used 15 day window to allow for a rapid coversion to a 14 day difference model (below).  
+
+```{r, ARIMA modeling difference, echo = FALSE}
+
+autoplot(forecast(auto.arima(diff(arima_ts)), h = 7)) +
+  labs(subtitle = paste("Daily difference in cases forecast model next 7 days", state2select, max(st$date)))
+
+```
 ## Part 2.  Using linear modeling in daily difference to determine the trends
 
 In this part it will be broken down into thre sections.  First section will look at the standard model for the 10-days bofere and after a lock-down/stay in place order.  Then a standard last 10-14 days compared to previous 10-14 days and both normalized to days 1 through 10 (or 14).  Second part is the start of the difference model by looking at the previous 10-14 days and comparing to the time before that.  This is appropriate in states that had not transistioned from lag-phase to exponetial growth phase (i.e. West Virginia).  This shoud show a basic day-over-day trend.  Third part is looking at the effect of the stay in place/lockdown order to determine if it had a measurable effect.  NOTE: in states with minimal/no time in exponential growth this may not be an accurate measure and recommend that Part 2, section B be used (ie. comparing two different time frames).
@@ -366,7 +406,15 @@ st %>%
 
 ### Part 3 Section B plotting using state shape files
 
-#### Geospatial of number of cases
+#### Collecting the population and spatial geometry data from US census.
+
+This is a quick call to the US census using the R package tidycensus.  If you do not have a census API-key please file for one on the US Census site and follow the information on registering the key using the tidycensus package manual or at:
+
+https://walkerke.github.io/tidycensus/articles/basic-usage.html
+
+The tidycensus package is an excellent package and please let Kyle Walker know that you apprecite the work at:
+
+https://walkerke.github.io/
 
 ```{r, Getting the census data, echo = FALSE}
 
@@ -377,6 +425,9 @@ state_census  <- get_acs(geography = "county",
                    year = 2018,
                    geometry = TRUE)
 ```
+#### Geospatial of number of cases
+
+The goal of this plot is to show where the cases that are driving the infectious disease pan/epidemic are occuring. This is limited to the quality of the data recieved and due to the varied nature of different counties' public health may not be accurate.  However, this should provide a population densisty basis for the disease.  This plot should be looked at with caution because it will skew to larger urban/higher population densities and should be combinded with a population adjusted geo-spatial overlay (see below) to provied a more complete picture of needs.
 
 ```{r, Basic county level plots, echo=FALSE}
 
@@ -402,6 +453,7 @@ state_tally <- st %>%
 
 #### Geospatial overlay of probability of case given its population 
 
+The goal of this plot it to show how the relative ratio of infections differs when adjusting for population.  It is expected that the majority of the regions analyzed will remain similar, however, areas that have a higher (or lower) number of cases on a population basis should change relative color.  A change higher (i.e. an averave region becoming a "hotspot") could indicate a underserved population or lack of hospital access.  On the other hand, a region that goes from middle or higher on the spectral (log adjusted scale in this case) scale to lower could indicate access to better than average medical care.  This was seen in Kanawah County, WV when unadjusted for population is a "hotspot" or red on the scale but when adjusted for population is a slightly lower risk. On the other hand the county next to Kanawah showed the oppisite indicating that on a population normalized basis the public health risk was higher.  One area this may prove potentially useful is in states with large urban centers (i.e. Los Angeles, CA, New York, NY or Chicago, IL to name a few).  Larger urban centers may looks like the main drivers/risk populations but surronding suburban and other outline counties may have similar risk that is not seen on the cases number plot alone.
 
 ```{r, Population adjusted county level plots, echo=FALSE}
 
@@ -419,7 +471,6 @@ state_tally <- st %>%
 #### Basic prediction of the total cases until reduction to standard health risk
 
 In addition to number of cases and deaths there are some basic predictions that can be infered from previous pandemics.  While it seems to be fashionable to compare to the 1918 flu pandemic this is a useful number to allow a knowledge of approximate number (or percent) of cases required to decrease the infection rates below a public health risk.  In 1918, the world population was around 1.8 billion and around 500 million were infected this is a `r round(100 * 500000000/1800000000, digits =2)`% infection rate before lowering public health risk to "just the standard flu."  To see how `r paste(state2select)` is on the public health risk when comapred to the 1918 flu pandemic some basic calculations can be done.
-
 
 ```{r, Basic PHR calculations very rough need probabilty modeling, echo = FALSE}
 
