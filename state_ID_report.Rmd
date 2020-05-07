@@ -1,36 +1,41 @@
 ---
 title: "State Specific free and open epidemology analysis using R"
 author: "Eric Olle"
-date: "April 30, 2020"
+date: May 3, 2020
 output:
   html_document: default
   word_document: default
   pdf_document: default
 ---
 
-# A free and open framework for the analysis of COVID-19 world wide pandemic
+## A free and open framework for the analysis of COVID-19 world wide pandemic
 
-## Background
+This document was prepared on: `r paste(date())`
 
-This is the basic markdown document as part of a free and open epidemology document.  This is meant to be used free of charge and kept in the GPLv3 or equivlent to allow for ongoing analysis of the data set. This file and information may also be used for other local epidemics as needed.  
+### Background
 
-### R Markdown
+This is the basic markdown document as part of a free and open epidemiology document. This is meant to be used free of charge and kept in the GPLv3 or equivalent to allow for ongoing analysis of the data set. This file and information may also be used for other local epidemics as needed.
+
+#### R Markdown
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-### This is a rough draft and has not been checked for spelling or grammar!
-
-This is a working document that is part of an onging R markdown.  
 
 The orginal r markdown will be posted to:
 
 https://github.com/Eric43/ID-free-reports
 
-Need to do the references at the end.
+This is a working document and may change over time.
 
 ### Required packages
 
-The majority of the data clean up is done in the Tidyverse created by Hadley Wickam and others.  Hadley and his work on ggplot along with basiclly every aspesct of R have made R a more user friendly experience.  Without this vision this report may not have been possible.  If you can please support tidyverse and the work of R-studio to maintain these incredible resources for R-nerds everywhere.  Hadley and all his collaborators have, in my opnion (ewo) made working in R an almost enjoyable expereince.  I really appreciate the Yowmans effort of turning an ecclectic program based on S that I learned in the early 2000's to something that is truely remarkable for statistical and mathmatical modeling.  
+The majority of the data clean up is done in the Tidyverse was created by Hadley Wickam and others. See:
+
+https://www.tidyverse.org/
+
+This work has affected basically every aspect of R have made R a more user friendly experience. Without this vision this report may not have been possible. If you can please support tidyverse and the work of R-studio to maintain these incredible resources for R-nerds everywhere. Hadley and all his collaborators have, in my opinion (ewo) made working in R an almost enjoyable experience. I really appreciate the Yowmans effort of turning an eclectic program based on S that I learned in the early 2000’s to something that is truly remarkable for statistical and mathematical modeling.
+
+Other packages use are lubridate, forecast, lmtest and tidycensus.  
 
 ```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -44,26 +49,28 @@ options(tigris_use_cache = TRUE)
 
 ```
 
-### Loading the data from file
+#### Loading the data from file
 
-This section loads the infection data from the NY-times public dataset. If needed, a csv file can be loaded using the readr read_csv() command.  Make sure date is properly loaded in as a data/posix type.
+This section loads the infection data from the NY-times public data set. If needed, a csv file can be loaded using the readr read_csv() command. Make sure date is properly loaded in as a data/posix type.
 
-```{r, Loading the COVID-19 infection data from NY-times public dataset}
+```{r, Loading the COVID-19 infection data from NY-times public dataset, echo = FALSE}
 
 
 us_counties <- read_csv("https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv")
 
+#unique(us_counties$state)
 
 ```
 
-### Setting the constants that apply to the individual state
+#### Setting the constants that apply to the individual state
+
 In this section to constants that will apply to the individual state(s) can be done.
 
-```{r, Setting the constants}
+```{r, Setting the constants, echo = FALSE}
 
 # Which specific state?
 
-state2select <- "<insert state here>"
+state2select <- "Minnesota"
 
 # What is the state specific lockdown?  
 # (follow the correct date format)
@@ -72,6 +79,8 @@ state2select <- "<insert state here>"
 lockdown_st <- as.Date("2020-03-20")
 
 lockdown_effect <- FALSE
+
+exp_model <- TRUE
 
 # lockdown data
 
@@ -82,13 +91,15 @@ lockdownitl <- as.Date("2020-03-08")
 ## USA - New York
 lockdownnyc <- as.Date("2020-03-20")
 
+print(paste("The state selected for analysis is:", state2select, "with lockdown of:", lockdown_st))
+
 ```
 
-## Part 1.  Time series analysis
+### Part I.  Graphing time series of infection
 
 In this section a basic time series plot of the full US along with the selected state will be done.
 
-### Plotting the full state data set.
+#### A. Plotting the full state data set.
 
 ```{r, Plotting entire NY times data set, echo=FALSE}
 
@@ -109,16 +120,16 @@ us_counties %>%
 
 ```
 
-The above graph shows the different time series of infetions accross the USA.  The red line indicates the first lockdown in China of `r paste(lockdownprc)`.  Included are the Italian lockdown of `r paste(lockdownitl)` in green and the New York lockdown of `r paste(lockdownnyc)` in blue. This should act as a way to help visualize and pinpoint different times.  If additional times are needed use the geom_vline() command.
+The above graph shows the different time series of infections across the USA. The red line indicates the first lock down in China of `r paste(lockdownprc)`.  Included are the Italian lock down of `r paste(lockdownitl)` in green and the New York lockdown of `r paste(lockdownnyc)` in blue. This should act as a way to help visualize and pinpoint different times.  If additional times are needed use the geom_vline() command.
 
 
-### Selecting the state specific data from the NY Times dataset
+#### B. Selecting the state specific data from the NY Times dataset
 
-To select a specific state use the unique state names call (above) set the state name by copy/paste or typing in with the quotation marks.  The current state is set to: `r state2select`. The states lockdown date is set to `r lockdown_st'.  To change the state and/or the lockdown date do so in the previous section called "Setting the constants."   Finally, if the state has enough data before the lockdown (i.e. 5-7 days) and is still not in the lag phase of exponetial growth feel free to set lockdown effect analysis to "TRUE."
+To select a specific state use the unique state names call (above) set the state name by copy/paste or typing in with the quotation marks. The current state is set to:  `r state2select`. The states lock down date is set to `r lockdown_st`.  To change the state and/or the lock down date do so in the previous section called “Setting the constants.” Finally, if the state has enough data before the lock down (i.e.5-7 days) and is still not in the lag phase of exponential growth feel free to set lock down effect analysis to “TRUE.”
 
-#### Selecting the state data from state2select var
+##### Selecting the state data from state2select var
 
-The st data set was selected in case future geo-spatial on the rate of cases by county is needed.
+The state data set was selected in case future geo-spatial on the rate of cases by county is needed.
 
 ```{r, starting with all the states and selecting just one state}
 
@@ -134,9 +145,9 @@ st_cases <- st %>% select(c(date, cases)) %>%
 ```
 
 
-#### Plotting the state specific data
+#### C. Plotting the state specific data
 
-Once the data is selected and grouped by state cases a general total cases per day model can be developed.  Depending on the state this should not select the NA's and have different start times.  Alternative methods are possible by converting to a wide format to maintain early NA data.
+Once the data is selected and grouped by state cases a general total cases per day model can be developed. Depending on the state this should not select the NA’s and have different start times. Alternative methods are possible by converting to a wide format to maintain early NA data.
 
 ```{r, Time-series using just one state, echo=FALSE}
 
@@ -152,9 +163,7 @@ st_cases %>%
 ```
 
 
-Depending on total case numbers(i.e. greater than 1000-5000) a log scale maybe easier to show trends and see recent trends.  If under 5000 cases total this may over-represent trends (up or down) that are only part of the standard variance of the data.
-
-
+Depending on total case numbers(i.e.greater than 1000-5000) a log scale maybe easier to show trends and see recent trends. If under 5000 cases total this may over-represent trends (up or down) that are only part of the standard variance of the data.
 
 ```{r, Time series plot using log for y axis, echo=FALSE}
   
@@ -173,15 +182,17 @@ st_cases %>%
 
 
 
-### Basic forecast model for the next 10 days.
+### Part II.  Forecast models for cases load and daily differences
 
-To do this you will need to convert the date data into a time-series using the Forecast and lubridate packages in R.  This is a very basic forecasting model and just uses random walk with or without drift.  Depending on the phase of the infectious disease this may need to be done using ARIMA modeling (later sections).  However, this can provide a basic idea of where the cases may be in 10 days witout major changes in the outlying varables. 
+To do this you will need to convert the date data into a time-series using the Forecast and lubridate packages in R. This document is using a very basic forecasting model(s) such as: random walk, exponential time series or ARIMA. No seasonal corrections have been introduced due to the limited data set. at the time of writing. This section can provide a basic idea of where the cases may be in the next 7 to 10 days without major changes in the underlying model assumptions or variables.
 
-The forecasting sections primarlly use the forecast package by Rob J Hyndman and George Athanasopoulos it is a phenominal package and is highly recommended that you suppor the continued development through purchasing of the book or maybe sending them a nice note at:
+The forecasting sections primarily use the forecast package by Rob J Hyndman and George Athanasopoulos it is a phenomenal package and is highly recommended that you support the continued development through purchasing of the book or maybe sending them a nice note at:
 
 https://otexts.com/fpp2/buy-a-print-or-downloadable-version.html
 
-The work done for this package is just amazing.
+The work done for this package is just amazing and between this work the seminal work on time series  by Box and Jenkings (1970 & 2015) (See Hyndman et. al for current version of Box et al.) one can “see into the future.” (humor intended).
+
+#### A Random walk method full data set
 
 ```{r, Random Walk Forecasting model, echo=FALSE}
 
@@ -204,7 +215,24 @@ autoplot(stcases_ts) +
 
 
 ```
-Doing a basic difference model with forecasting.
+
+#### B. Forecasting with ETS (growth phase only)
+
+In addition to random walk the forecast package can do exponential time series (ETS()). There are different phases of a novel infectious agent that may not meet the underlying criteria and this method (as will the others) need to be used carefully. Make sure the system is in the appropriate growth phase and has not in lag, stationary or later phases. Additionally, it has been observed that the infection is in the growth phase this model may not represent a true forecast.  However, in the growth phase of a pandemic this may provide accurate representation for expected case load. The exponential time series is set to  `r paste(exp_model)`.  If FALSE nothing may be seen below.
+
+```{r, ets modeling, echo = FALSE}
+if (exp_model) {
+fit<- ets(stcases_ts)
+
+# plot(fit)
+
+autoplot(forecast(fit, h = 7)) +
+  labs(subtitle = paste("Exponential forecast model next 7 days", state2select, max(st$date)))
+}
+```
+
+#### C. Forecasting using a daily difference model.
+
 
 ```{r, setting up the difference model with forecast, echo=FALSE}
 
@@ -221,29 +249,35 @@ autoplot(diff(stcases_ts)) +
 
 ```
 
-#### ARIMA modeling prior 14 (15 for non differenc model) days in a difference model
+#### D. ARIMA modeling from two weeks
 
 Another way to forecast the number of cases is to use ARIMA modeling (See the Forecast package citation) or:
 
 https://otexts.com/fpp2/
 
-This and the random walk with and without drift are meant to be used together to attempt to estimate the number of cases from the previous 15 days using the auto.arima() function.  There is no one "correct" answer when forecasting the future nubmer of infections but is meant to show overall treands and help predict public health risks.  The first graph is showing the log of the cases as part of a time series.
+This and the random walk with and without drift are meant to be used together to attempt to estimate the number of cases from the previous 15 days using the auto.arima() function. There is no one “correct” answer when forecasting the future number of infections but is meant to show overall trends and help predict public health risks. The first graph is showing the log of the cases as part of a time series.
 
 ```{r, ARIMA modeling past 15 days, echo=FALSE}
 end_arima <- max(st_cases$date)
-start_arima <- end_arima - 15
+start_arima <- end_arima - 14
 
-arima_ts <- ts(st_cases[,2], start = c(year(start_arima), yday(start_arima)),
+
+ts_select <- st_cases %>%
+  filter(date >= start_arima & date <= end_arima)
+
+
+arima_ts <- ts(ts_select$n, start = c(year(start_arima), yday(start_arima)),
                end = c(year(end_arima), yday(end_arima)), frequency = 365)
 
 
-
-autoplot(forecast(auto.arima(log(arima_ts)), h = 7)) +
-  labs(subtitle = paste("Standard log(cases) forecast model next 7 days", state2select, max(st$date)))
+autoplot(forecast(auto.arima(arima_ts), h = 7)) +
+  labs(subtitle = paste("Standard auto ARIMA forecast model next 7 days", state2select, max(st$date)))
 
 ```
 
-The above figure (ARIMA modeling of previous 15 days) is meant tho show an overall trend.  This used 15 day window to allow for a rapid coversion to a 14 day difference model (below).  
+The above figure (ARIMA modeling of previous 15 days) is meant tho show an overall trend. This used 15 day window to allow for a rapid conversion to a 14 day difference model (below). It is expected that the model will show drift until full stationary phase is reached or the infection is nearly completion. This is meant to be used to predict the number of reported case over the next week.
+
+#### E. ARIMA modeling difference between daily cases
 
 ```{r, ARIMA modeling difference, echo = FALSE}
 
@@ -251,19 +285,21 @@ autoplot(forecast(auto.arima(diff(arima_ts)), h = 7)) +
   labs(subtitle = paste("Daily difference in cases forecast model next 7 days", state2select, max(st$date)))
 
 ```
-## Part 2.  Using linear modeling in daily difference to determine the trends
 
-In this part it will be broken down into thre sections.  First section will look at the standard model for the 10-days bofere and after a lock-down/stay in place order.  Then a standard last 10-14 days compared to previous 10-14 days and both normalized to days 1 through 10 (or 14).  Second part is the start of the difference model by looking at the previous 10-14 days and comparing to the time before that.  This is appropriate in states that had not transistioned from lag-phase to exponetial growth phase (i.e. West Virginia).  This shoud show a basic day-over-day trend.  Third part is looking at the effect of the stay in place/lockdown order to determine if it had a measurable effect.  NOTE: in states with minimal/no time in exponential growth this may not be an accurate measure and recommend that Part 2, section B be used (ie. comparing two different time frames).
+The above graph is showing the last 14 days of a difference between cases/day. Depending on the stage of the infection it may show drift up or down. If during stationary phase of a public health epidemic it is expected to be a standard ARIMA model with a non-zero mean. Drift can indicate that the difference in the cases/day is changing.  Therefore, it is necessary to look at the auto.arimia fit criteria for the best model indicated in the title.
 
-NOTE:  This is still being worked on and needs to have the stay in place order model done.  
+Above models of a time series utilize different forecasting methods such as random walk or ARIMA modeling. These can be very useful but require a nuance approach along with multiple models to aid the forecaster (See the Hyndman et al (2020), Hyndman and Khandakar (2008)). In general these are asking the question based upon the current time series (or training data) what is the forecast number in the future. This is excellent for providing information but may lack the ability to (easily) compare the effect of of different public health measures. The next section is designed to use simple linear modeling across two time windows to see what the effect of different public health measures.
 
-### Part 2. Section A Comparing the last two weeks to the previous.
+### Part III.  Using linear modeling in daily difference to determine the trends
 
-Comparing the last n days versus previous time frame using standard case number and difference modeling.
+In this part it will be broken down into three sections. First section will look at the standard model for the 10-days before and after a lock-down/stay in place order. Then a standard last 10-14 days compared to previous 10-14 days and both normalized to days 1 through 10 (or 14). Second part is the start of the difference model by looking at the previous 10-14 days and comparing to the time before that. This is appropriate in states that had not transitioned from lag-phase to exponential growth phase (i.e. West Virginia). This should show a basic day-over-day trend. Third part is looking at the effect of the stay in place/lock down order to determine if it had a measurable effect. NOTE: in states with minimal/no time in exponential growth this may not be an accurate measure and recommend that Part 2, section B be used (ie. comparing two different time frames).
 
+NOTE: This is still being worked on and needs to have the stay in place order model done. 
 
+#### A. Comparing the last two weeks to the previous.
 
-Above shows a basic difference model of a time series with a random walk forecast.  If it appears that a form of stasis (i.e. random variation around an estimated mean) was achieved then it maybe possible to use ARIMA modeling for a better determination of actual Difference(cases).
+The goal of this section is to align certain time frame such as 15 days in standard model or 14 days in difference model to allow for direct linear modeling and comparison. While linear modeling may have its limitations and will not be significant if the variance between the days is later, it will proved a general trend. This trend of the number of cases/day of the difference of cases/day can then be compared to see the effect of different states, stay in place or the return to work timings. The model is simple. If there is a difference between the two time frame windows the slope of the line will also be different. The line and it appearance can quickly show that a negative slop will show decreasing cases where as a horizontal line is basically stasis and a positive slope is an increase in cases. There will be limitation to using this and overlapping confidence intervals
+
 
 ```{r, extraction of the days for 30 day analysis, echo = FALSE }
 
@@ -288,20 +324,20 @@ after_window <- st_cases %>%
 #Set up the standard time series.  Note:15 days to allow 14 d of difference modeling
 
 std_tib <- tibble(Day = c(1:15)) %>%
-  mutate(Before = before_window$n) %>%
-  mutate(After = after_window$n) %>%
+  mutate("Prior 3 & 4 wks" = before_window$n) %>%
+  mutate("Prior 1 & 2 wks"= after_window$n) %>%
   gather(key = Timing, value = n, - Day)
 
 
 diff_tib <- diff_tib %>%
-  mutate(Before = diff(before_window$n)) %>%
-  mutate(After = diff(after_window$n)) %>%
+  mutate("Prior 3 & 4 wks" = diff(before_window$n)) %>%
+  mutate("Prior 1 & 2 wks"= diff(after_window$n)) %>%
   gather(key = Timing, value = n, - Day)
 
 
 ```
 
-After setting up the two different time frames in a tibble (i.e. 14 days for difference series is 15 days in standard series), the two differnt data sets are plotted.  The first to be plotted is the standard 15 day data series with a linear model trend line from geom_smooth() command in ggplot2 can be seen below.  After is the data set in the last 15 days and the before is the 15 days prior to the After data set.  This was meant to coincide with the naming of the lockdown (before and after the lockdown) data analysis (below).
+After setting up the two different time frames in a tibble (i.e. 14 days for difference series is 15 days in standard series), the two different data sets are plotted. The first to be plotted is the standard 15 day data series with a linear model trend line from geom_smooth() command in ggplot2 can be seen below. After is the data set in the last 15 days and the before is the 15 days prior to the After data set. This was meant to coincide with the naming of the lock down (before and after the lock down) data analysis (below).
 
 ```{r, plotting cummulative number of cases over two time periods, echo=FALSE}
 
@@ -314,8 +350,11 @@ ggplot(data = std_tib, aes(x = Day, y = n)) +
 
 ```
 
+The above graph is show two different windows of time and the linear model line associated with the data. This is a standard total case model and is using 15 day windows so the data can be put through a difference model (that reduces by one day) and is comparable. The group “Prior 1 & 2 wks” is the last two weeks from the end of the NY-time data set. to 15 days ago. The group “prior 3 & 4 wks” looks at three to four weeks ago and compares. The slope of line can indicate how case numbers are changing. For example, if the last two weeks has a steep slope than three to four weeks ago it indicates that there are rate of cases had increased.
 
-The above data is showing the before group from `r paste("Starting date, ", before_start, "to", before_end)`.  The after group includes from `r paste("Starting date, ", before_end, "to", (before_end+diff_window))`. Looking at the dataset it is usually difficult if not impossible to see a change in the slope if the infectious disease is in the lag, exponetial growth or stationalry phase(es).  During the death phase or transition from one phase to the nextthe slopes maybe different   In addition, Yule-Simpson effect of big data maybe involved and te slope of the line may be unrelated or trend differently than the actual sub-grouped data.  What we are really interested in is a straighforward question.  Does the number of new cases per day differ (i.e. lower, greater or stay the same)?  Therefore, a difference model was designed to look at to determine if the difference between the day over day case numbers are changing.   
+The data is showing the prior 3 to 4 weeks group from `r paste("Starting date, ", before_start, "to", before_end)`.  The prior 1 and 2 weeks group includes from `r paste("Starting date, ", before_end, "to", (before_end+diff_window))`. Looking at the data set. it is usually difficult if not impossible to see a change in the slope if the infectious disease is in the lag, exponential growth or stationary phase(es). During the death phase or transition from one phase to the next the slopes maybe different In addition, Yule-Simpson effect of big data maybe involved and the slope of the line may be unrelated or trend differently than the actual sub-grouped data. What most public health and hospital planners are interested in is a straightforward question. Does the number of new cases per day differ (i.e. lower, greater or stay the same)? Therefore, a difference model was designed to look at to determine if the difference between the day over day case numbers are changing.   
+
+#### B. Linear modeling difference between daily cases
 
 
 ```{r, Ploting and LM of the two time frames difference series, echo = FALSE}
@@ -328,43 +367,46 @@ ggplot(data = diff_tib, aes(x = Day, y = n)) +
 
 ```
 
-Checking the Linear Model of the before and after.
+The above graph “Difference modeling of COVID-19” shows the daily difference in number of cases along with a smoothed trend line and confidence interval using linear modeling. This graph provides quick comparison between the last two weeks and the two week before that (weeks 3 to 4 prior to the end of the data). Looking at the trend lines, it can be determined if more cases per day in the last two weeks are occurring when compared to the prior time frame. Additionally, the confidence interval along with the raw data lines can show how much variation occurs along with overlapping data can indicate that the daily difference is remaining basically the same. The next section analyzes the linear model to determine significance and calculated out the difference between the slopes of the line to show if daily case difference is increasing, decreasing or remaining constant.
 
-First part is to look at the LM for the before group.  Slope of difference in cases per day is located under the Day row, Estimate column.
+
+Checking the Linear Model of the last two weeks and the last 3 to 4 weeks to compare how the number of cases differs per day. First part is to look at the LM for the previous 3 and 4 weeks. Slope of difference in cases per day is located under the Day row, Estimate column.
+
 ```{r, before linear modeling, echo = FALSE}
-before_lm <- lm(n ~ Day, data = diff_tib %>% filter(Timing == "Before"))
+wks3to4_lm <- lm(n ~ Day, data = diff_tib %>% filter(Timing == "Prior 3 & 4 wks"))
 
 
-summary(before_lm)
+summary(wks3to4_lm)
 
 ```
 
-Second part is to look at the LM for the After group.  Slope of difference in cases per day is located under the Day row, Estimate column.
+Second part is to look at the LM for the last two weeks.  Slope of difference in cases per day is located under the Day row, Estimate column.
+
 ```{r, linear modeling after, echo = FALSE}
-after_lm <- lm(n ~ Day, data = diff_tib %>% filter(Timing == "After"))
+
+wks1to2_lm <- lm(n ~ Day, data = diff_tib %>% filter(Timing == "Prior 1 & 2 wks"))
 
 
-summary(after_lm)
+summary(wks1to2_lm)
 
 
 ```
-
 
 Comparing the slopes of the line can give you an idea of how the last 14 days compare to the previous.  
 
-#### Calculating the differnce between the before and after groups using the difference model 
+##### B.1 Calculating the differnce between the before and after groups using the difference model 
 
-The goal of this section is to use the coefficients of the linear model (i.e. differences in cases/day) to see the number of cases and if the last two week the case load is decreasing (negative number), increasing (positive number) or remaining the same (around 0 +/- number).  The difference between the last two weeks and the previous two weeks is: `r paste("The difference in the slope (# cases/day) is: ", round(after_lm$coefficients[2] - before_lm$coefficients[2], digits = 2))` case-difference/day.
+The goal of this section is to use the coefficients of the linear model (i.e. differences in cases/day) to see the number of cases and if the last two week the case load is decreasing (negative number), increasing (positive number) or remaining the same (around 0 +/- number). The difference between the last two weeks and the previous two weeks is: The difference in the slope (# cases/day) is:  `r paste("The difference in the slope (# cases/day) is: ", round(wks1to2_lm$coefficients[2] - wks3to4_lm$coefficients[2], digits = 2))` case-difference/day.
    
+#### C Linear modeling to look at before and after the stay in place order 
 
+The goal of this section is to look at the effect of lock down or later on in the public health disease removal of the stay in place orders. 
 
-### Part 2, Sectiong B Linear modeling to look at before and after the stay in place order 
+Lock down analysis set to FALSE.
 
-Lockdown analysis set to FALSE.
+### Part IV. Geospatial distrubution of cases
 
-## Part 3. Geospatial distrubution of cases
-
-### Part 3 Section A Plotting bar graph of cases
+#### A. Plotting bar graph of cases by region
 
 
 ```{r, looking at the geospatial dist dot plot, echo = FALSE}
@@ -385,7 +427,9 @@ st %>%
 
 ```
 
-The above graph shows total number of cases by county.  The next step is to show total mortality by county.  
+The above graph shows total number of cases by county. The next step is to show total mortality by county. 
+
+#### B. Plotting bar graph of deaths by region
 
 ```{r, looking at the geospatial dist dot plot mortality, echo = FALSE}
 
@@ -404,15 +448,15 @@ st %>%
 
 ```
 
-### Part 3 Section B plotting using state shape files
+#### C. Graphical representation of the location of cases
 
 #### Collecting the population and spatial geometry data from US census.
 
-This is a quick call to the US census using the R package tidycensus.  If you do not have a census API-key please file for one on the US Census site and follow the information on registering the key using the tidycensus package manual or at:
+This is a quick call to the US census using the R package tidycensus. If you do not have a census API-key please file for one on the US Census site and follow the information on registering the key using the tidycensus package manual or at:
 
 https://walkerke.github.io/tidycensus/articles/basic-usage.html
 
-The tidycensus package is an excellent package and please let Kyle Walker know that you apprecite the work at:
+The tidycensus package is an excellent package and please let Kyle Walker know that you appreciate the work at:
 
 https://walkerke.github.io/
 
@@ -425,9 +469,9 @@ state_census  <- get_acs(geography = "county",
                    year = 2018,
                    geometry = TRUE)
 ```
-#### Geospatial of number of cases
+##### Geospatial of number of cases raw data
 
-The goal of this plot is to show where the cases that are driving the infectious disease pan/epidemic are occuring. This is limited to the quality of the data recieved and due to the varied nature of different counties' public health may not be accurate.  However, this should provide a population densisty basis for the disease.  This plot should be looked at with caution because it will skew to larger urban/higher population densities and should be combinded with a population adjusted geo-spatial overlay (see below) to provied a more complete picture of needs.
+The goal of this plot is to show where the cases that are driving the infectious disease pan/epidemic are occurring. This is limited to the quality of the data received and due to the varied nature of different counties’ public health may not be accurate. However, this should provide a population density basis for the disease. This plot should be looked at with caution because it will skew to larger urban/higher population densities and should be combined with a population adjusted geo-spatial overlay (see below) to provided a more complete picture of needs.
 
 ```{r, Basic county level plots, echo=FALSE}
 
@@ -441,6 +485,7 @@ state_tally <- st %>%
   state_census %>%
     left_join(state_tally, by= c("GEOID" = "fips")) %>%
     ggplot(aes(fill = log(n))) + 
+    theme_light() +
     geom_sf(color = NA) + 
     coord_sf() + 
     scale_fill_distiller(palette = "Spectral") +
@@ -451,9 +496,9 @@ state_tally <- st %>%
 
 
 
-#### Geospatial overlay of probability of case given its population 
+##### Geospatial overlay of cases adjusted for population 
 
-The goal of this plot it to show how the relative ratio of infections differs when adjusting for population.  It is expected that the majority of the regions analyzed will remain similar, however, areas that have a higher (or lower) number of cases on a population basis should change relative color.  A change higher (i.e. an averave region becoming a "hotspot") could indicate a underserved population or lack of hospital access.  On the other hand, a region that goes from middle or higher on the spectral (log adjusted scale in this case) scale to lower could indicate access to better than average medical care.  This was seen in Kanawah County, WV when unadjusted for population is a "hotspot" or red on the scale but when adjusted for population is a slightly lower risk. On the other hand the county next to Kanawah showed the oppisite indicating that on a population normalized basis the public health risk was higher.  One area this may prove potentially useful is in states with large urban centers (i.e. Los Angeles, CA, New York, NY or Chicago, IL to name a few).  Larger urban centers may looks like the main drivers/risk populations but surronding suburban and other outline counties may have similar risk that is not seen on the cases number plot alone.
+The goal of this plot it to show how the relative ratio of infections differs when adjusting for population. It is expected that the majority of the regions analyzed will remain similar, however, areas that have a higher (or lower) number of cases on a population basis should change relative color. A change higher (i.e. an average region becoming a “hot spot”) could indicate a under served population or lack of hospital access. On the other hand, a region that goes from middle or higher on the spectral (log adjusted scale in this case) scale to lower could indicate access to better than average medical care. This was seen in Kanawah County, WV when unadjusted for population is a “hot spot” or red on the scale but when adjusted for population is a slightly lower risk. On the other hand the county next to Kanawah showed the opposite indicating that on a population normalized basis the public health risk was higher. One area this may prove potentially useful is in states with large urban centers (i.e. Los Angeles, CA, New York, NY or Chicago, IL to name a few). Larger urban centers may looks like the main drivers/risk populations but surrounding suburban and other outline counties may have similar risk that is not seen on the cases number plot alone.
 
 ```{r, Population adjusted county level plots, echo=FALSE}
 
@@ -461,6 +506,7 @@ The goal of this plot it to show how the relative ratio of infections differs wh
     left_join(state_tally, by= c("GEOID" = "fips")) %>%
     mutate(p_adj = n/estimate) %>%
     ggplot(aes(fill = log(p_adj))) + 
+    theme_light() +
     geom_sf(color = NA) + 
     coord_sf() + 
     scale_fill_distiller(palette = "Spectral") +
@@ -468,9 +514,9 @@ The goal of this plot it to show how the relative ratio of infections differs wh
 
 ```
 
-#### Basic prediction of the total cases until reduction to standard health risk
+### Part V. Basic prediction of the total cases until reduction to standard health risk
 
-In addition to number of cases and deaths there are some basic predictions that can be infered from previous pandemics.  While it seems to be fashionable to compare to the 1918 flu pandemic this is a useful number to allow a knowledge of approximate number (or percent) of cases required to decrease the infection rates below a public health risk.  In 1918, the world population was around 1.8 billion and around 500 million were infected this is a `r round(100 * 500000000/1800000000, digits =2)`% infection rate before lowering public health risk to "just the standard flu."  To see how `r paste(state2select)` is on the public health risk when comapred to the 1918 flu pandemic some basic calculations can be done.
+In addition to number of cases and deaths there are some basic predictions that can be inferred from previous pandemics. While it seems to be fashionable to compare to the 1918 flu pandemic this is a useful number to allow a knowledge of approximate number (or percent) of cases required to decrease the infection rates below a public health risk. In 1918, the world population was around 1.8 billion and around 500 million were infected this is a `r round(100 * 500000000/1800000000, digits =2)`% infection rate before lowering public health risk to “just the standard flu.” To see how `r paste(state2select)` is on the public health risk when compared to the 1918 flu pandemic some basic calculations can be done.
 
 ```{r, Basic PHR calculations very rough need probabilty modeling, echo = FALSE}
 
@@ -489,6 +535,50 @@ exp_pan <- round(p_flu_pan * st_pop, digits = 0)
 
 
 ```
-Using the background of the number of population infected during the 1918 flu pandemic certain estimates can be made.  This means that when the popluation infected is roughly equal to the the percentage of those infected with the flu the public health risks is low enough to begin reducing the need for public masks/santization etc.  This would mean that for this state to achieve similar percent infected as the 1918 flu around `r paste(exp_pan)` is needed.  Currently, there are approximately `r paste(tot_cases)`. this is around `r paste(round(pct_inf, digits = 2))`%.  Currently the total mortality in the state is `r paste(tot_dead)` and this accounts for `r paste(round(100*(tot_dead/tot_cases), digits=2))`% of the total verified cases.
 
+Using the background of the number of population infected during the 1918 flu pandemic certain estimates can be made. This means that when the population infected is roughly equal to the the percentage of those infected with the flu the public health risks is low enough to begin reducing the need for public masks/sanitzation etc. This would mean that for this state to achieve similar percent infected as the 1918 flu around `r paste(exp_pan)` are needed.  Currently, there are approximately `r paste(tot_cases)`. this is around `r paste(round(pct_inf, digits = 2))`%.  Currently the total mortality in the state is `r paste(tot_dead)` and this accounts for `r paste(round(100*(tot_dead/tot_cases), digits=2))`% of the total verified cases.
+
+
+
+### Part VI. References
+
+#### A. R - The program
+
+  R Core Team (2020). R: A language and environment for statistical computing. R
+  Foundation for Statistical Computing, Vienna, Austria. URL
+  https://www.R-project.org/.
+  
+#### B. R - Packages 
+  
+  Achim Zeileis, Torsten Hothorn (2002). Diagnostic Checking in Regression
+  Relationships. R News 2(3), 7-10. URL https://CRAN.R-project.org/doc/Rnews/
+  
+  Garrett Grolemund, Hadley Wickham (2011). Dates and Times Made Easy with
+  lubridate. Journal of Statistical Software, 40(3), 1-25. URL
+  http://www.jstatsoft.org/v40/i03/.
+  
+  Hadley Wickham (2017). tidyverse: Easily Install and Load the 'Tidyverse'. R
+  package version 1.2.1. https://CRAN.R-project.org/package=tidyverse
+  
+  Hyndman R, Athanasopoulos G, Bergmeir C, Caceres G, Chhay L, O'Hara-Wild M,
+  Petropoulos F, Razbash S, Wang E, Yasmeen F (2020). _forecast: Forecasting
+  functions for time series and linear models_. R package version 8.11, <URL:
+  http://pkg.robjhyndman.com/forecast>.
+
+  Hyndman RJ, Khandakar Y (2008). “Automatic time series forecasting: the forecast
+  package for R.” _Journal of Statistical Software_, *26*(3), 1-22. <URL:
+  http://www.jstatsoft.org/article/view/v027i03>.
+
+  Kyle Walker (2019). tidycensus: Load US Census Boundary and Attribute Data as
+  'tidyverse' and 'sf'-Ready Data Frames. R package version 0.9.2.
+  https://CRAN.R-project.org/package=tidycensus
+  
+  
+### Part VII. Authors and contributors
+
+#### A. Authors.
+
+Eric W. Olle.  Author and creator of this document
+
+#### B. Contributors.
 
