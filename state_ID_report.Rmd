@@ -1,7 +1,7 @@
 ---
 title: "State Specific free and open epidemology analysis using R"
 author: "Eric Olle"
-date: May 3, 2020
+date: May 10, 2020
 output:
   html_document: default
   word_document: default
@@ -70,7 +70,7 @@ In this section to constants that will apply to the individual state(s) can be d
 
 # Which specific state?
 
-state2select <- "Minnesota"
+state2select <- "Maryland"  
 
 # What is the state specific lockdown?  
 # (follow the correct date format)
@@ -216,9 +216,11 @@ autoplot(stcases_ts) +
 
 ```
 
-#### B. Forecasting with ETS (growth phase only)
+#### B. Forecasting with Exponential Smoothing (ETS)
 
-In addition to random walk the forecast package can do exponential time series (ETS()). There are different phases of a novel infectious agent that may not meet the underlying criteria and this method (as will the others) need to be used carefully. Make sure the system is in the appropriate growth phase and has not in lag, stationary or later phases. Additionally, it has been observed that the infection is in the growth phase this model may not represent a true forecast.  However, in the growth phase of a pandemic this may provide accurate representation for expected case load. The exponential time series is set to  `r paste(exp_model)`.  If FALSE nothing may be seen below.
+In addition to random walk the forecast package can do exponential smoothing of time series (ETS()). There are different phases of a novel infectious agent that may not meet the underlying criteria and this method (as with the other methods) need to be used carefully. Make sure the system is in the appropriate growth phase and is not in lag, stationary or resolution/death phases or in a transition phase.  However, in the growth phase of a pandemic this may provide accurate representation for expected case load. The exponential smoothing of time series is set to  `r paste(exp_model)`.  
+
+If FALSE nothing may be seen below.
 
 ```{r, ets modeling, echo = FALSE}
 if (exp_model) {
@@ -233,6 +235,7 @@ autoplot(forecast(fit, h = 7)) +
 
 #### C. Forecasting using a daily difference model.
 
+While the number infected follows a standard cumulative distrubution function and may not meet the underlying assumptioon of forecasting.  The difference between the days can be used to create a system that may meet ARIMA with non-zero mean and random walk without drift type of model.  The difference model is also used in later sections.
 
 ```{r, setting up the difference model with forecast, echo=FALSE}
 
@@ -337,7 +340,7 @@ diff_tib <- diff_tib %>%
 
 ```
 
-After setting up the two different time frames in a tibble (i.e. 14 days for difference series is 15 days in standard series), the two different data sets are plotted. The first to be plotted is the standard 15 day data series with a linear model trend line from geom_smooth() command in ggplot2 can be seen below. After is the data set in the last 15 days and the before is the 15 days prior to the After data set. This was meant to coincide with the naming of the lock down (before and after the lock down) data analysis (below).
+After setting up the two different time frames in a tibble (i.e.14 days for difference series is 15 days in standard series), the two different data sets are plotted. The first to be plotted is the standard 15 day data series with a linear model trend line from geom_smooth() command in ggplot2 can be seen below. After is the data set in the last 15 days and the before is the 15 days prior to the After data set. This was meant to coincide with the naming of the lock down (before and after the lock down) data analysis (below).
 
 ```{r, plotting cummulative number of cases over two time periods, echo=FALSE}
 
@@ -352,7 +355,7 @@ ggplot(data = std_tib, aes(x = Day, y = n)) +
 
 The above graph is show two different windows of time and the linear model line associated with the data. This is a standard total case model and is using 15 day windows so the data can be put through a difference model (that reduces by one day) and is comparable. The group “Prior 1 & 2 wks” is the last two weeks from the end of the NY-time data set. to 15 days ago. The group “prior 3 & 4 wks” looks at three to four weeks ago and compares. The slope of line can indicate how case numbers are changing. For example, if the last two weeks has a steep slope than three to four weeks ago it indicates that there are rate of cases had increased.
 
-The data is showing the prior 3 to 4 weeks group from `r paste("Starting date, ", before_start, "to", before_end)`.  The prior 1 and 2 weeks group includes from `r paste("Starting date, ", before_end, "to", (before_end+diff_window))`. Looking at the data set. it is usually difficult if not impossible to see a change in the slope if the infectious disease is in the lag, exponential growth or stationary phase(es). During the death phase or transition from one phase to the next the slopes maybe different In addition, Yule-Simpson effect of big data maybe involved and the slope of the line may be unrelated or trend differently than the actual sub-grouped data. What most public health and hospital planners are interested in is a straightforward question. Does the number of new cases per day differ (i.e. lower, greater or stay the same)? Therefore, a difference model was designed to look at to determine if the difference between the day over day case numbers are changing.   
+The data is showing the prior 3 to 4 weeks group from `r paste("Starting date, ", before_start, "to", before_end)`.  The prior 1 and 2 weeks group includes from `r paste("Starting date, ", before_end, "to", (before_end+diff_window))`. Looking at the data set. it is usually difficult if not impossible to see a change in the slope if the infectious disease is in the lag, exponential growth or stationary phase(es). During the death phase or transition from one phase to the next the slopes maybe different In addition, Yule-Simpson effect of big data maybe involved and the slope of the line may be unrelated or trend differently than the actual sub-grouped data.  This is why the question(s) need to be appropriate and specific to the problem at hand. What most public health and hospital planners are interested in is a straightforward question. Does the number of new cases per day differ (i.e. lower, greater or stay the same)? Therefore, a difference model was designed to look at to determine if the difference between the day over day case numbers are changing.   
 
 #### B. Linear modeling difference between daily cases
 
@@ -367,8 +370,9 @@ ggplot(data = diff_tib, aes(x = Day, y = n)) +
 
 ```
 
-The above graph “Difference modeling of COVID-19” shows the daily difference in number of cases along with a smoothed trend line and confidence interval using linear modeling. This graph provides quick comparison between the last two weeks and the two week before that (weeks 3 to 4 prior to the end of the data). Looking at the trend lines, it can be determined if more cases per day in the last two weeks are occurring when compared to the prior time frame. Additionally, the confidence interval along with the raw data lines can show how much variation occurs along with overlapping data can indicate that the daily difference is remaining basically the same. The next section analyzes the linear model to determine significance and calculated out the difference between the slopes of the line to show if daily case difference is increasing, decreasing or remaining constant.
+The above graph “Difference modeling of COVID-19” shows the daily difference in number of cases along with a smoothed trend line and confidence interval using linear modeling. This graph provides quick comparison between the last two weeks and the two week before that (weeks 3 to 4 prior to the end of the data). Looking at the trend lines, it can be determined if more cases per day in the last two weeks are occurring when compared to the prior time frame. Additionally, the confidence interval along with the raw data lines can show how much variation occurs along with overlapping data can indicate that the daily difference is remaining basically the same. The next section analyzes the linear model to determine significance and calculated out the difference between the slopes of the line to show if daily case difference is increasing, decreasing or remaining constant.  
 
+One simple way to tell if the last two weeks have improved or the last three to four weeks is to look at the lines.  Is the red line (last two weeks) on average above, below or equal to the blue line (previous weeks 3 and 4).  If below then there are overall less new cases/day.  If equal or overlapping intervalse (grey shading) then its roughly equal.  Finally, if the trend is increasing then the red line will be above the blue line or at a steeper angle.  In addition to visual this can be calculated from the slope (see below).
 
 Checking the Linear Model of the last two weeks and the last 3 to 4 weeks to compare how the number of cases differs per day. First part is to look at the LM for the previous 3 and 4 weeks. Slope of difference in cases per day is located under the Day row, Estimate column.
 
@@ -396,7 +400,7 @@ Comparing the slopes of the line can give you an idea of how the last 14 days co
 
 ##### B.1 Calculating the differnce between the before and after groups using the difference model 
 
-The goal of this section is to use the coefficients of the linear model (i.e. differences in cases/day) to see the number of cases and if the last two week the case load is decreasing (negative number), increasing (positive number) or remaining the same (around 0 +/- number). The difference between the last two weeks and the previous two weeks is: The difference in the slope (# cases/day) is:  `r paste("The difference in the slope (# cases/day) is: ", round(wks1to2_lm$coefficients[2] - wks3to4_lm$coefficients[2], digits = 2))` case-difference/day.
+The goal of this section is to use the coefficients of the linear model (i.e. differences in cases/day) to see the number of cases and if the last two week the case load is decreasing (negative number), increasing (positive number) or remaining the same (around 0 +/- number). The difference between the last two weeks and the previous two weeks is: `r paste(round(wks1to2_lm$coefficients[2] - wks3to4_lm$coefficients[2], digits = 2))` case-difference/day.
    
 #### C Linear modeling to look at before and after the stay in place order 
 
@@ -498,7 +502,7 @@ state_tally <- st %>%
 
 ##### Geospatial overlay of cases adjusted for population 
 
-The goal of this plot it to show how the relative ratio of infections differs when adjusting for population. It is expected that the majority of the regions analyzed will remain similar, however, areas that have a higher (or lower) number of cases on a population basis should change relative color. A change higher (i.e. an average region becoming a “hot spot”) could indicate a under served population or lack of hospital access. On the other hand, a region that goes from middle or higher on the spectral (log adjusted scale in this case) scale to lower could indicate access to better than average medical care. This was seen in Kanawah County, WV when unadjusted for population is a “hot spot” or red on the scale but when adjusted for population is a slightly lower risk. On the other hand the county next to Kanawah showed the opposite indicating that on a population normalized basis the public health risk was higher. One area this may prove potentially useful is in states with large urban centers (i.e. Los Angeles, CA, New York, NY or Chicago, IL to name a few). Larger urban centers may looks like the main drivers/risk populations but surrounding suburban and other outline counties may have similar risk that is not seen on the cases number plot alone.
+The goal of this plot it to show how the relative ratio of infections differs when adjusting for population. It is expected that the majority of the regions analyzed will remain similar, however, areas that have a higher (or lower) number of cases on a population basis should change relative color. A change higher (i.e. an average region becoming a “hot spot”) could indicate a under served population or lack of hospital access. On the other hand, a region that goes from middle or higher on the spectral (log adjusted scale in this case) scale to lower could indicate access to better than average medical care. This was seen in Kanawah County, WV when unadjusted for population is a “hot spot” or red on the scale but when adjusted for population is a slightly lower risk. On the other hand the county next to Kanawah showed the opposite indicating that on a population normalized basis the public health risk was higher. One area this may prove potentially useful is in states with large urban centers (i.e.Los Angeles, CA, New York, NY or Chicago, IL to name a few). Larger urban centers may looks like the main drivers/risk populations but surrounding suburban and other outline counties may have similar risk that is not seen on the cases number plot alone.
 
 ```{r, Population adjusted county level plots, echo=FALSE}
 
