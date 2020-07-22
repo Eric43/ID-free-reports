@@ -1,11 +1,11 @@
 ---
 title: "State Specific free and open epidemology analysis using R"
 author: "Eric Olle"
-date: May 10, 2020
+date: July 22, 2020
 output:
-  html_document: default
-  word_document: default
   pdf_document: default
+  word_document: default
+  html_document: default
 ---
 
 ## A free and open framework for the analysis of COVID-19 world wide pandemic
@@ -70,7 +70,7 @@ In this section to constants that will apply to the individual state(s) can be d
 
 # Which specific state?
 
-state2select <- "Maryland"  
+state2select <- "West Virginia" 
 
 # What is the state specific lockdown?  
 # (follow the correct date format)
@@ -141,6 +141,10 @@ st <- us_counties %>%
 st_cases <- st %>% select(c(date, cases)) %>%
     group_by(date) %>%
     tally(cases)
+
+st_mort <- st %>% select (c(date, deaths)) %>%
+    group_by(date)%>%
+    tally(deaths)
   
 ```
 
@@ -215,6 +219,29 @@ autoplot(stcases_ts) +
 
 
 ```
+
+After a basic model for total cases, a mortality model can be developed.
+
+```{r, Random Walk Mortality Forecasting model, echo=FALSE}
+
+
+stmort_ts <- ts(st_mort[,2], start = c(year(start_cases), yday(start_cases)),
+               end = c(year(end_cases), yday(end_cases)), frequency = 365)
+
+
+autoplot(stmort_ts) +
+  autolayer(rwf(stmort_ts, h=10),
+    series="RWF Naïve", PI=FALSE) +
+  autolayer(rwf(stmort_ts, drift=TRUE, h=10),
+    series="RWF Drift", PI=FALSE) + 
+  ggtitle(paste("Forecasts for COVID-19 mortality over next 10 days", state2select)) +
+  xlab("Time") + 
+  ylab("Number cases") +
+  guides(colour=guide_legend(title="Forecast"))
+
+
+```
+
 
 #### B. Forecasting with Exponential Smoothing (ETS)
 
@@ -421,7 +448,7 @@ st %>%
   group_by(county) %>%
   tally(cases) %>%
   ggplot(aes(x = n, y = reorder(county, n))) + 
-  coord_trans(x = "log") +
+
   geom_point(color = "red", size = 1.5) +
   labs(title = paste("Total N cases COVID-19 in", state2select, max(st$date)),
        subtitle = "NY-times public data set",
@@ -522,14 +549,17 @@ The goal of this plot it to show how the relative ratio of infections differs wh
 
 In addition to number of cases and deaths there are some basic predictions that can be inferred from previous pandemics. While it seems to be fashionable to compare to the 1918 flu pandemic this is a useful number to allow a knowledge of approximate number (or percent) of cases required to decrease the infection rates below a public health risk. In 1918, the world population was around 1.8 billion and around 500 million were infected this is a `r round(100 * 500000000/1800000000, digits =2)`% infection rate before lowering public health risk to “just the standard flu.” To see how `r paste(state2select)` is on the public health risk when compared to the 1918 flu pandemic some basic calculations can be done.
 
+##### The following section has not been double checked.  Need to verify numbers.
+##### In addition need to develop a model for CDF and where on infect curve.
+
 ```{r, Basic PHR calculations very rough need probabilty modeling, echo = FALSE}
 
 p_flu_pan <- 500000000/1800000000
 
-tot_cases <- sum(st$cases)
+tot_cases <- max(stcases_ts) #### Double check sum or max.
 
 
-tot_dead <- sum(st$deaths)
+tot_dead <- max(stmort_ts)   ### Need to double check
 
 st_pop <- sum(state_census$estimate)
 
@@ -586,3 +616,11 @@ Eric W. Olle.  Author and creator of this document
 
 #### B. Contributors.
 
+
+#### C. Versions
+
+March 1, 2020 Basic document created.
+April 14, 2020 Automated document framework 
+May 6, 2020 state_ID_report.Rmd sections finalized
+May 21, 2020 Added basic references and EPS models.
+July 17, 2020 Working on adding mortality model
