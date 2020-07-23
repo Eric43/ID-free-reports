@@ -446,7 +446,7 @@ Lock down analysis set to FALSE.
 st %>%
   select(c(date, county, cases)) %>%
   group_by(county) %>%
-  tally(cases) %>%
+  tally(diff(cases)) %>%
   ggplot(aes(x = n, y = reorder(county, n))) + 
 
   geom_point(color = "red", size = 1.5) +
@@ -468,7 +468,7 @@ The above graph shows total number of cases by county. The next step is to show 
 st %>%
   select(c(date, county, deaths)) %>%
   group_by(county) %>%
-  tally(deaths) %>%
+  tally(diff(deaths)) %>%
   ggplot(aes(x = n, y = reorder(county, n))) + 
   geom_point(color = "black", size = 1.5) +
   labs(title = paste("Total N deaths COVID-19 in", state2select, max(st$date)),
@@ -509,7 +509,7 @@ The goal of this plot is to show where the cases that are driving the infectious
 state_tally <- st %>%
     select(c(date, county, fips, cases)) %>%
     group_by(county, fips) %>%
-    tally(cases) 
+    tally(diff(cases)) 
   
   
 
@@ -624,3 +624,4 @@ April 14, 2020 Automated document framework
 May 6, 2020 state_ID_report.Rmd sections finalized
 May 21, 2020 Added basic references and EPS models.
 July 17, 2020 Working on adding mortality model
+July 23, 2020 changed the caluclation for determining total N 
